@@ -1,0 +1,13 @@
+{
+  "name": "websocket-relay",
+  "version": "1.0.0",
+  "description": "WebSocket relay for C2 commands",
+  "main": "relay.js",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  }
+}
