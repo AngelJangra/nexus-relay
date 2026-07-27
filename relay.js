@@ -92,7 +92,7 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================================
-//  ROOT – MODERN UI DASHBOARD
+//  ROOT – MODERN UI DASHBOARD (fixed template literals)
 // ============================================================
 app.get('/', (req, res) => {
     res.send(`
@@ -457,26 +457,26 @@ app.get('/', (req, res) => {
         setInterval(fetchStats, 3000);
 
         // ============================================================
-        //  WEBSOCKET TESTER
+        //  WEBSOCKET TESTER (using string concatenation, no backticks)
         // ============================================================
         let ws = null;
-        const log = document.getElementById('wsLog');
-        const deviceIdInput = document.getElementById('wsDeviceId');
-        const msgInput = document.getElementById('wsMessage');
-        const connectBtn = document.getElementById('wsConnectBtn');
-        const disconnectBtn = document.getElementById('wsDisconnectBtn');
-        const sendBtn = document.getElementById('wsSendBtn');
+        var log = document.getElementById('wsLog');
+        var deviceIdInput = document.getElementById('wsDeviceId');
+        var msgInput = document.getElementById('wsMessage');
+        var connectBtn = document.getElementById('wsConnectBtn');
+        var disconnectBtn = document.getElementById('wsDisconnectBtn');
+        var sendBtn = document.getElementById('wsSendBtn');
 
-        function addLog(msg, type = 'info') {
-            const time = new Date().toLocaleTimeString();
-            const entry = document.createElement('div');
-            entry.innerHTML = `<span style="color:#4a6a7a;">[${time}]</span> <span class="${type}">${msg}</span>`;
+        function addLog(msg, type) {
+            var time = new Date().toLocaleTimeString();
+            var entry = document.createElement('div');
+            entry.innerHTML = '<span style="color:#4a6a7a;">[' + time + ']</span> <span class="' + type + '">' + msg + '</span>';
             log.appendChild(entry);
             log.scrollTop = log.scrollHeight;
         }
 
         function connectWS() {
-            const deviceId = deviceIdInput.value.trim();
+            var deviceId = deviceIdInput.value.trim();
             if (!deviceId) {
                 addLog('❌ Please enter a Device ID.', 'err');
                 return;
@@ -485,26 +485,26 @@ app.get('/', (req, res) => {
                 addLog('⚠️ Already connected. Disconnect first.', 'warn');
                 return;
             }
-            const wsUrl = \`wss://\${window.location.host}?deviceId=\${encodeURIComponent(deviceId)}\`;
+            var wsUrl = 'wss://' + window.location.host + '?deviceId=' + encodeURIComponent(deviceId);
             ws = new WebSocket(wsUrl);
 
-            ws.onopen = () => {
+            ws.onopen = function() {
                 addLog('✅ WebSocket connected (Device: ' + deviceId + ')', 'ok');
                 connectBtn.disabled = true;
                 disconnectBtn.disabled = false;
                 sendBtn.disabled = false;
             };
 
-            ws.onmessage = (e) => {
+            ws.onmessage = function(e) {
                 try {
-                    const data = JSON.parse(e.data);
+                    var data = JSON.parse(e.data);
                     addLog('📩 Received: ' + JSON.stringify(data), 'info');
-                } catch {
+                } catch (_) {
                     addLog('📩 Received: ' + e.data, 'info');
                 }
             };
 
-            ws.onclose = () => {
+            ws.onclose = function() {
                 addLog('🔌 WebSocket disconnected', 'warn');
                 connectBtn.disabled = false;
                 disconnectBtn.disabled = true;
@@ -512,7 +512,7 @@ app.get('/', (req, res) => {
                 ws = null;
             };
 
-            ws.onerror = (err) => {
+            ws.onerror = function(err) {
                 addLog('⚠️ Error: ' + err.message, 'err');
             };
         }
@@ -530,7 +530,7 @@ app.get('/', (req, res) => {
                 addLog('❌ WebSocket is not connected.', 'err');
                 return;
             }
-            const msg = msgInput.value.trim();
+            var msg = msgInput.value.trim();
             if (!msg) {
                 addLog('⚠️ Please enter a message.', 'warn');
                 return;
@@ -547,17 +547,14 @@ app.get('/', (req, res) => {
         disconnectBtn.addEventListener('click', disconnectWS);
         sendBtn.addEventListener('click', sendWSMessage);
 
-        // Enter key on message input sends
-        msgInput.addEventListener('keydown', (e) => {
+        msgInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') sendWSMessage();
         });
 
-        // Initial state
         disconnectBtn.disabled = true;
         sendBtn.disabled = true;
 
-        // Also allow connecting via deviceId input with Enter
-        deviceIdInput.addEventListener('keydown', (e) => {
+        deviceIdInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') connectWS();
         });
 
