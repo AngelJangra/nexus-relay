@@ -36,7 +36,6 @@ const clients = new Map();
 // ============================================================
 const DEFAULT_BACKEND = 'https://nexus-backend-v2.vercel.app';
 let BACKEND_URL = process.env.BACKEND_URL || DEFAULT_BACKEND;
-// Remove trailing slash if present
 if (BACKEND_URL.endsWith('/')) {
     BACKEND_URL = BACKEND_URL.slice(0, -1);
 }
@@ -109,7 +108,6 @@ app.post('/send-command', async (req, res) => {
     }
 
     try {
-        // 1. Store command in Supabase via Vercel backend and get commandId
         const storeUrl = `${BACKEND_URL}/api/send-command`;
         console.log(`[Relay] 📤 POST to backend: ${storeUrl}`);
         const storeResponse = await axios.post(storeUrl, {
@@ -119,7 +117,6 @@ app.post('/send-command', async (req, res) => {
         const commandId = storeResponse.data.commandId;
         console.log(`[Relay] ✅ Command stored in backend (ID: ${commandId}) for ${deviceId}`);
 
-        // 2. Send command + commandId via WebSocket (if device is connected)
         const ws = clients.get(deviceId);
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             return res.status(404).json({
@@ -157,7 +154,7 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================================
-//  ROOT – MODERN UI (Glassmorphism) with NEXUS branding
+//  ROOT – MODERN UI with NEXUS branding and credit
 // ============================================================
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
