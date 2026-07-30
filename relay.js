@@ -11,6 +11,19 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
+// ============================================================
+//  CORS MIDDLEWARE – Allow all origins for development
+// ============================================================
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -42,9 +55,7 @@ wss.on('connection', (ws, req) => {
         console.log(`[Relay] 📩 From ${deviceId}: ${msg}`);
         try {
             const data = JSON.parse(msg);
-            // Check if this is a command result
             if (data.output !== undefined || data.error !== undefined) {
-                // Forward result to backend
                 const { commandId, output, error } = data;
                 if (commandId) {
                     await axios.post(`${BACKEND_URL}/api/submit-result`, {
@@ -58,7 +69,6 @@ wss.on('connection', (ws, req) => {
                     console.warn('[Relay] ⚠️ Result received without commandId, ignoring.');
                 }
             } else {
-                // Other messages – just log
                 console.log(`[Relay] 📩 Unrecognized message: ${msg}`);
             }
         } catch (e) {
@@ -80,6 +90,8 @@ wss.on('connection', (ws, req) => {
 //  HTTP ENDPOINT – Receive command from dashboard
 // ============================================================
 app.post('/send-command', async (req, res) => {
+    console.log(`[Relay] 📨 Received POST /send-command`, req.body);
+
     const { deviceId, command } = req.body;
 
     if (!deviceId || !command) {
@@ -138,8 +150,7 @@ app.get('/health', (req, res) => {
 //  ROOT – MODERN UI (Glassmorphism) with NEXUS branding
 // ============================================================
 app.get('/', (req, res) => {
-    res.send(`
-<!DOCTYPE html>
+    res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
