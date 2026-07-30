@@ -1,5 +1,5 @@
 // ============================================================
-//  WEBSOCKET RELAY – Modern UI + Command Storage
+//  NEXUS RELAY – Modern UI + Command Storage
 //  Deploy on Render
 // ============================================================
 
@@ -114,7 +114,7 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================================
-//  ROOT – MODERN UI (Glassmorphism)
+//  ROOT – MODERN UI (Glassmorphism) with NEXUS branding
 // ============================================================
 app.get('/', (req, res) => {
     res.send(`
@@ -123,7 +123,7 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Relay</title>
+    <title>NEXUS Relay</title>
     <style>
         /* ============================================================
            MODERN GLASSMORPHISM THEME
@@ -379,6 +379,21 @@ app.get('/', (req, res) => {
         .tester .log .err { color: #ff5e5e; }
         .tester .log .info { color: #88ccff; }
 
+        /* Credit footer */
+        .credit-footer {
+            text-align: center;
+            color: #4a6a7a;
+            font-size: 11px;
+            margin-top: 28px;
+            border-top: 1px solid rgba(42, 42, 68, 0.25);
+            padding-top: 16px;
+            letter-spacing: 0.3px;
+        }
+        .credit-footer span {
+            color: #f7971e;
+            font-weight: 600;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .stats-grid { grid-template-columns: 1fr 1fr; }
@@ -392,7 +407,7 @@ app.get('/', (req, res) => {
 
     <!-- HEADER -->
     <div class="header">
-        <h1><span>☠️</span> WebSocket Relay</h1>
+        <h1><span>☠️</span> NEXUS Relay</h1>
         <span class="badge">🟢 Operational</span>
     </div>
 
@@ -453,136 +468,142 @@ app.get('/', (req, res) => {
         <div class="log" id="wsLog">[System] Ready. Click "Connect" to open WebSocket.</div>
     </div>
 
-    <script>
-        // ============================================================
-        //  DASHBOARD UPDATES
-        // ============================================================
-        async function fetchStats() {
-            try {
-                const resp = await fetch('/health');
-                const data = await resp.json();
-                document.getElementById('clientCount').textContent = data.clients;
-                const uptime = Math.floor(data.uptime);
-                const hours = Math.floor(uptime / 3600);
-                const minutes = Math.floor((uptime % 3600) / 60);
-                const seconds = uptime % 60;
-                document.getElementById('uptime').textContent =
-                    (hours > 0 ? hours + 'h ' : '') +
-                    (minutes > 0 ? minutes + 'm ' : '') +
-                    seconds + 's';
-            } catch (e) {
-                console.error('Stats error:', e);
-            }
-        }
+    <!-- CREDIT FOOTER -->
+    <div class="credit-footer">
+        Made with ❤️ by <span>AJ</span>
+    </div>
 
-        fetchStats();
-        setInterval(fetchStats, 3000);
-
-        // ============================================================
-        //  WEBSOCKET TESTER (using string concatenation, no backticks)
-        // ============================================================
-        let ws = null;
-        var log = document.getElementById('wsLog');
-        var deviceIdInput = document.getElementById('wsDeviceId');
-        var msgInput = document.getElementById('wsMessage');
-        var connectBtn = document.getElementById('wsConnectBtn');
-        var disconnectBtn = document.getElementById('wsDisconnectBtn');
-        var sendBtn = document.getElementById('wsSendBtn');
-
-        function addLog(msg, type) {
-            var time = new Date().toLocaleTimeString();
-            var entry = document.createElement('div');
-            entry.innerHTML = '<span style="color:#4a6a7a;">[' + time + ']</span> <span class="' + type + '">' + msg + '</span>';
-            log.appendChild(entry);
-            log.scrollTop = log.scrollHeight;
-        }
-
-        function connectWS() {
-            var deviceId = deviceIdInput.value.trim();
-            if (!deviceId) {
-                addLog('❌ Please enter a Device ID.', 'err');
-                return;
-            }
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                addLog('⚠️ Already connected. Disconnect first.', 'warn');
-                return;
-            }
-            var wsUrl = 'wss://' + window.location.host + '?deviceId=' + encodeURIComponent(deviceId);
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = function() {
-                addLog('✅ WebSocket connected (Device: ' + deviceId + ')', 'ok');
-                connectBtn.disabled = true;
-                disconnectBtn.disabled = false;
-                sendBtn.disabled = false;
-            };
-
-            ws.onmessage = function(e) {
-                try {
-                    var data = JSON.parse(e.data);
-                    addLog('📩 Received: ' + JSON.stringify(data), 'info');
-                } catch (_) {
-                    addLog('📩 Received: ' + e.data, 'info');
-                }
-            };
-
-            ws.onclose = function() {
-                addLog('🔌 WebSocket disconnected', 'warn');
-                connectBtn.disabled = false;
-                disconnectBtn.disabled = true;
-                sendBtn.disabled = true;
-                ws = null;
-            };
-
-            ws.onerror = function(err) {
-                addLog('⚠️ Error: ' + err.message, 'err');
-            };
-        }
-
-        function disconnectWS() {
-            if (ws) {
-                ws.close();
-            } else {
-                addLog('⚠️ No active connection.', 'warn');
-            }
-        }
-
-        function sendWSMessage() {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                addLog('❌ WebSocket is not connected.', 'err');
-                return;
-            }
-            var msg = msgInput.value.trim();
-            if (!msg) {
-                addLog('⚠️ Please enter a message.', 'warn');
-                return;
-            }
-            try {
-                ws.send(msg);
-                addLog('📤 Sent: ' + msg, 'ok');
-            } catch (e) {
-                addLog('❌ Send error: ' + e.message, 'err');
-            }
-        }
-
-        connectBtn.addEventListener('click', connectWS);
-        disconnectBtn.addEventListener('click', disconnectWS);
-        sendBtn.addEventListener('click', sendWSMessage);
-
-        msgInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') sendWSMessage();
-        });
-
-        disconnectBtn.disabled = true;
-        sendBtn.disabled = true;
-
-        deviceIdInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') connectWS();
-        });
-
-        addLog('💡 Type a Device ID and click "Connect" to test.', 'info');
-    </script>
 </div>
+
+<script>
+    // ============================================================
+    //  DASHBOARD UPDATES
+    // ============================================================
+    async function fetchStats() {
+        try {
+            const resp = await fetch('/health');
+            const data = await resp.json();
+            document.getElementById('clientCount').textContent = data.clients;
+            const uptime = Math.floor(data.uptime);
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = uptime % 60;
+            document.getElementById('uptime').textContent =
+                (hours > 0 ? hours + 'h ' : '') +
+                (minutes > 0 ? minutes + 'm ' : '') +
+                seconds + 's';
+        } catch (e) {
+            console.error('Stats error:', e);
+        }
+    }
+
+    fetchStats();
+    setInterval(fetchStats, 3000);
+
+    // ============================================================
+    //  WEBSOCKET TESTER (using string concatenation, no backticks)
+    // ============================================================
+    let ws = null;
+    var log = document.getElementById('wsLog');
+    var deviceIdInput = document.getElementById('wsDeviceId');
+    var msgInput = document.getElementById('wsMessage');
+    var connectBtn = document.getElementById('wsConnectBtn');
+    var disconnectBtn = document.getElementById('wsDisconnectBtn');
+    var sendBtn = document.getElementById('wsSendBtn');
+
+    function addLog(msg, type) {
+        var time = new Date().toLocaleTimeString();
+        var entry = document.createElement('div');
+        entry.innerHTML = '<span style="color:#4a6a7a;">[' + time + ']</span> <span class="' + type + '">' + msg + '</span>';
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function connectWS() {
+        var deviceId = deviceIdInput.value.trim();
+        if (!deviceId) {
+            addLog('❌ Please enter a Device ID.', 'err');
+            return;
+        }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            addLog('⚠️ Already connected. Disconnect first.', 'warn');
+            return;
+        }
+        var wsUrl = 'wss://' + window.location.host + '?deviceId=' + encodeURIComponent(deviceId);
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = function() {
+            addLog('✅ WebSocket connected (Device: ' + deviceId + ')', 'ok');
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            sendBtn.disabled = false;
+        };
+
+        ws.onmessage = function(e) {
+            try {
+                var data = JSON.parse(e.data);
+                addLog('📩 Received: ' + JSON.stringify(data), 'info');
+            } catch (_) {
+                addLog('📩 Received: ' + e.data, 'info');
+            }
+        };
+
+        ws.onclose = function() {
+            addLog('🔌 WebSocket disconnected', 'warn');
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            sendBtn.disabled = true;
+            ws = null;
+        };
+
+        ws.onerror = function(err) {
+            addLog('⚠️ Error: ' + err.message, 'err');
+        };
+    }
+
+    function disconnectWS() {
+        if (ws) {
+            ws.close();
+        } else {
+            addLog('⚠️ No active connection.', 'warn');
+        }
+    }
+
+    function sendWSMessage() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            addLog('❌ WebSocket is not connected.', 'err');
+            return;
+        }
+        var msg = msgInput.value.trim();
+        if (!msg) {
+            addLog('⚠️ Please enter a message.', 'warn');
+            return;
+        }
+        try {
+            ws.send(msg);
+            addLog('📤 Sent: ' + msg, 'ok');
+        } catch (e) {
+            addLog('❌ Send error: ' + e.message, 'err');
+        }
+    }
+
+    connectBtn.addEventListener('click', connectWS);
+    disconnectBtn.addEventListener('click', disconnectWS);
+    sendBtn.addEventListener('click', sendWSMessage);
+
+    msgInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') sendWSMessage();
+    });
+
+    disconnectBtn.disabled = true;
+    sendBtn.disabled = true;
+
+    deviceIdInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') connectWS();
+    });
+
+    addLog('💡 Type a Device ID and click "Connect" to test.', 'info');
+</script>
 </body>
 </html>
     `);
