@@ -31,10 +31,16 @@ const wss = new WebSocket.Server({ server });
 const clients = new Map();
 
 // ============================================================
-//  BACKEND URL – CHANGE THIS TO YOUR VERCELL BACKEND
-//  Set environment variable BACKEND_URL or edit the default.
+//  BACKEND URL – Prioritize env var, fallback to default
+//  Trim trailing slash to avoid double slashes
 // ============================================================
-const BACKEND_URL = process.env.BACKEND_URL || 'https://nexus-backend-v2.vercel.app';
+const DEFAULT_BACKEND = 'https://nexus-backend-v2.vercel.app';
+let BACKEND_URL = process.env.BACKEND_URL || DEFAULT_BACKEND;
+// Remove trailing slash if present
+if (BACKEND_URL.endsWith('/')) {
+    BACKEND_URL = BACKEND_URL.slice(0, -1);
+}
+console.log(`[Relay] 🔗 Using Backend URL: ${BACKEND_URL}`);
 
 // ============================================================
 //  WEBSOCKET CONNECTION HANDLER
@@ -58,7 +64,8 @@ wss.on('connection', (ws, req) => {
             if (data.output !== undefined || data.error !== undefined) {
                 const { commandId, output, error } = data;
                 if (commandId) {
-                    await axios.post(`${BACKEND_URL}/api/submit-result`, {
+                    const resultUrl = `${BACKEND_URL}/api/submit-result`;
+                    await axios.post(resultUrl, {
                         deviceId,
                         commandId,
                         output: output || '',
@@ -103,7 +110,9 @@ app.post('/send-command', async (req, res) => {
 
     try {
         // 1. Store command in Supabase via Vercel backend and get commandId
-        const storeResponse = await axios.post(`${BACKEND_URL}/api/send-command`, {
+        const storeUrl = `${BACKEND_URL}/api/send-command`;
+        console.log(`[Relay] 📤 POST to backend: ${storeUrl}`);
+        const storeResponse = await axios.post(storeUrl, {
             deviceId: deviceId,
             command: command
         });
@@ -128,6 +137,7 @@ app.post('/send-command', async (req, res) => {
 
     } catch (e) {
         console.error(`[Relay] ❌ Error processing command: ${e.message}`);
+        console.error(`[Relay] ❌ Full error:`, e);
         res.status(500).json({
             success: false,
             error: e.message
